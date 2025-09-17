@@ -4,7 +4,7 @@ from tkinter import ttk
 from tkinter import messagebox
 from typing import List, Dict, Tuple, Callable
 from database import *
-
+import time
 # GUI main class
 
 class window:
@@ -20,13 +20,94 @@ class window:
         if not resizable:
             self.root.resizable(False, False)
         # frames
-        self.labelFrame = ttk.Frame(self.root)
-        self.fieldsFrame = ttk.Frame(self.root)
-        self.buttonsFrame = ttk.Frame(self.root)
+        self.labelFrame = ttk.Frame(self.root,borderwidth=5, relief="solid")
+        self.fieldsFrame = ttk.Frame(self.root,borderwidth=5, relief="solid")
+        self.buttonsFrame = ttk.Frame(self.root,borderwidth=5, relief="solid")
+        self.tableFrame = ttk.Frame(self.root)
+        self.tableFrame132 = ttk.Frame(self.tableFrame, borderwidth=5, relief="solid")
+        self.tableFrame33 = ttk.Frame(self.tableFrame, borderwidth=5, relief="solid")
+        self.tableFrame33ls = ttk.Frame(self.tableFrame, borderwidth=5, relief="solid")
         # widgets collection
         self.fields : Dict[str, Tuple[ttk.Label, ttk.Entry, tk.StringVar]] = {}
         self.buttons:dict[str, tuple[ttk.Button, Callable]] = {}
-        self.label = ttk.Label(self.labelFrame, text=heading, font=('Arial', 14, 'bold'))
+        self.table:dict[int,dict[str,dict[str,ttk.Entry]]] = {}
+        self.label = ttk.Label(self.labelFrame, text=heading, justify='right', anchor='e', font=('Arial', 14, 'bold'))
+
+    @staticmethod
+    def tillTime() -> str:
+        currentTime = time.strftime("%H:%M", time.localtime())
+        if(currentTime[0:2] == "18" or currentTime[0:2] == "19"):
+            temp = currentTime[0:2]
+            if(currentTime[3:] >= "30"):
+                temp += ":30"
+            else:
+                temp += ":00"
+            return temp
+        else:
+            temp = currentTime[0:2]
+            temp += ":00"
+            return temp
+
+    def createTable(self):
+        headings132 = ['Bus 1', 'Bus 2', 'T2 MW', 'T2 MVAR', 'T1 MW', 'T1 MVAR']
+        headings33 = ['Anowara', 'HM', 'Banskhali2']
+        headings33ls = ['Anowara', 'HM', 'Banskhali2']
+        times = [
+            "00:00",
+            "01:00",
+            "02:00",
+            "03:00",
+            "04:00",
+            "05:00",
+            "06:00",
+            "07:00",
+            "08:00",
+            "09:00",
+            "10:00",
+            "11:00",
+            "12:00",
+            "13:00",
+            "14:00",
+            "15:00",
+            "16:00",
+            "17:00",
+            "18:00",
+            "18:30",
+            "19:00",
+            "19:30",
+            "20:00",
+            "21:00",
+            "22:00",
+            "23:00"
+        ]
+        startTimeIdx = times.index(findLastEntryTime())
+        if startTimeIdx>=23:
+            startTimeIdx=0
+        else:
+            startTimeIdx+=1
+        # print(startTimeIdx)
+        endTimeIdx = times.index(self.tillTime())
+        if startTimeIdx<=endTimeIdx:
+            workingTime =times[startTimeIdx:endTimeIdx+1]
+        else:
+            workingTime = times[startTimeIdx:] + times[:endTimeIdx+1]
+
+        self.table[132] = {}
+        for t in workingTime:
+            self.table[132][t]={}
+            for i,h in enumerate(headings132):
+                self.table[132][t][h] = ttk.Entry(self.tableFrame132, width=8)
+        self.table[33] = {}
+        for t in workingTime:
+            self.table[33][t]={}
+            for i,h in enumerate(headings33):
+                self.table[33][t][h] = ttk.Entry(self.tableFrame33,width=8)
+        self.table[3315]={}
+        for t in workingTime:
+            self.table[3315][t]={}
+            for i,h in enumerate(headings33ls):
+                self.table[3315][t][h] = ttk.Entry(self.tableFrame33ls,width=8)
+
 
 
 
@@ -53,6 +134,10 @@ class window:
         messagebox.showinfo("Success!!", message="All fields are completed!")
         self.clearInputFeilds()
 
+    def __findEmptyTable(table id:int){
+        pass
+    }
+
     def clearInputFeilds(self):
         for field in self.fields:
             self.fields[field][2].set("")
@@ -62,21 +147,42 @@ class window:
 
 
     def view(self):
+        self.labelFrame.pack(fill='both')
         self.label.grid(sticky='ns')
-        self.labelFrame.pack(fill='both', padx=1, pady=1)
-        for i, field in enumerate(self.fields):
-            # label and fields
-            self.fields[field][0].grid(row = i, column= 0, padx=5, pady=5, sticky='nsew')
-            self.fields[field][1].grid(row = i, column = 1, padx=5, pady=5, sticky='nsew')
-            if i ==0:
-                self.fields[field][1].focus_set()
-        for btn in self.buttons:
-            self.buttons[btn].pack(side='right', padx=5, pady=2)
-        self.fieldsFrame.pack(fill='both', padx=1, pady=1)
-        self.fieldsFrame.columnconfigure(0, weight=2)
-        self.fieldsFrame.rowconfigure(0, weight=2)
-        self.buttonsFrame.pack(fill='both',padx=1, pady=1)
-        # self.root.bind('<Return>', lambda e: self.__findEmptyField())
+        # viewing fields
+        if self.fields:
+            self.fieldsFrame.columnconfigure(0, weight=2)
+            self.fieldsFrame.rowconfigure(0, weight=2)
+            self.fieldsFrame.pack(fill='both', padx=1, pady=1)
+            for i, field in enumerate(self.fields):
+                # label and fields
+                self.fields[field][0].grid(row = i, column= 0, padx=5, pady=5, sticky='nsew')
+                self.fields[field][1].grid(row = i, column = 1, padx=5, pady=5, sticky='nsew')
+                if i ==0:
+                    self.fields[field][1].focus_set()
+        # viewing table
+        if self.table:
+            self.tableFrame.pack(fill='both')
+            self.tableFrame132.pack(fill='both')
+            # viewing heading row
+            ttk.Label(self.tableFrame132, text='Time',font=('Arial', 9, 'bold'), justify='center').grid(row=0, column=0, padx=5,pady=5,sticky='nsew')
+            for i, h in enumerate(self.table[132][next(iter(self.table[132]))],start=1):
+                ttk.Label(self.tableFrame132, text=h,font=('Arial', 9, 'bold'), justify='center').grid(row=0, column=i, padx=5,pady=5,sticky='nsew')
+            # viewing entry rows
+            for r, t in enumerate(self.table[132]):
+                ttk.Label(self.tableFrame132, text=t).grid(row=r+1, column=0,padx=5,pady=5, sticky='nsew')
+                for c, heading in enumerate(self.table[132][t]):
+                    self.table[132][t][heading].grid(row=r+1, column=c+1, padx=5, pady=5, sticky='nsew')
+                    if r==0 and c == 0:
+                        self.table[132][t][heading].focus_set()
+                        
+
+        # viewing buttons
+        if self.buttons:
+            self.buttonsFrame.pack(fill='both',padx=1, pady=1)
+            for btn in self.buttons:
+                self.buttons[btn].pack(side='right', padx=5, pady=2)
+            # self.root.bind('<Return>', lambda e: self.__findEmptyField())
         self.root.bind('<Escape>', lambda e: self.root.destroy())
         self.root.mainloop()
 
@@ -108,7 +214,7 @@ def login(loginWindow:window):
     if id=='' or passw =='':
         messagebox.showerror('Error!', 'ID or Password cannot be empty.')
     elif sysLogin(id=id, pin=passw):
-        messagebox.showinfo('Success!', 'Successfully loged in.')
+        # messagebox.showinfo('Success!', 'Successfully loged in.')
         loginWindow.root.destroy()
         name, id = findActiveUser()
         startAppWindow(name=name, id=id)
@@ -121,7 +227,6 @@ def logOut(id, appWindow:window):
     loginWindow()
 
 def submitUpdateName(id:str, gui:window, parWindow:window):
-    print(parWindow.label)
     name=gui.getFieldVal('newName')
     gui.root.grab_set()
     messagebox.showinfo('Success', 'Name updated successfull', parent=gui.root) if updateName(id=id, name=name) else messagebox.showerror('Failed', 'Failed update name', parent=gui.root)
@@ -142,11 +247,13 @@ def startAppWindow(name, id):
     userMenu.add_command(label='Update Password', command=lambda:print('update password'))
     userMenu.add_command(label='Delete Me', command=lambda:print('Are you sure?'))
     userMenu.add_command(label='Logout', command=lambda:logOut(id=id,appWindow=appWindow))
+    appWindow.createTable()
+    # appWindow.addButton('ok', 'ok', lambda: appWindow.tableFrame.pack_forget())
     appWindow.view()
 
     
 def addMeWindow(parentWindow:Tk):
-    addUserWindow = window('New User','Adding New User', size='250x200', resizable=False, parent=False, parWindow=parentWindow)
+    addUserWindow = window('New User','Adding New User', size='250x220', resizable=False, parent=False, parWindow=parentWindow)
     # parentWindow.withdraw()
     addUserWindow.root.grab_set()
     addUserWindow.addField('id', 'OIS ID')
@@ -158,7 +265,7 @@ def addMeWindow(parentWindow:Tk):
     addUserWindow.view()
 
 def loginWindow():
-    loginWindow = window("Login", 'Login Please:', size='250x130', resizable=False)
+    loginWindow = window("Login", 'Login Please:', size='250x150', resizable=False)
     loginWindow.addField('id', 'OIS ID')
     loginWindow.addField('pass', 'Password', passField=True)
     loginWindow.addButton('login', 'Login', lambda:login(loginWindow=loginWindow))
