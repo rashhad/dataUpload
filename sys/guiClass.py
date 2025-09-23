@@ -1,11 +1,280 @@
+from abc import ABC, abstractmethod
 import tkinter as tk
 from tkinter import Tk
 from tkinter import ttk
 from tkinter import messagebox
-from typing import List, Dict, Tuple, Callable
+from typing import List, Dict, Tuple, Callable, Optional, Union
 from database import *
 import time
+
+
 # GUI main class
+class entryField:
+    """
+    Creates entry field having label, entry field and stringVar togather
+    """
+
+    def __init__(self, master:Tk):
+        self._fieldsFrame = ttk.Frame(master,borderwidth=5, relief="solid")
+        '''all fields will be residing inside this frame'''
+        self._fields : Dict[str, Tuple[ttk.Label, ttk.Entry, tk.StringVar]] = {}
+        ''' ditionary accessing hint:
+            fields[field id][0 for label,1 for entryField,2 for strVar].
+            This dictionary is used for collection of ttk.Entry in a window for letter use.
+        '''
+
+    def addField(self, id:str, label:str, passField: bool = False):
+        '''adds a field to self.fields dictionary.'''
+        __var = tk.StringVar()
+        if passField:
+            self._fields[id] = (ttk.Label(self._fieldsFrame, text=label),ttk.Entry(self._fieldsFrame, textvariable=__var, show='*'), __var)
+        else:
+            self._fields[id] = (ttk.Label(self._fieldsFrame, text=label),ttk.Entry(self._fieldsFrame, textvariable=__var), __var)
+
+    def getEntryField(self, id:str) -> Optional[ttk.Entry]:
+        try:
+            return self._fields[id][1]
+        except:
+            return None
+        
+    def getLabel(self, id:str) -> Optional[ttk.Entry]:
+        try:
+            return self._fields[id][0]
+        except:
+            return None
+        
+    def getFieldVal(self, id:str):
+        '''return a specific entry field widget by it's id.'''
+        return self._fields[id][1].get()
+    
+    def setFieldVal(self,id,value:str):
+        self._fields[id][2].set(value=value)
+
+
+    def getEmptyField(self) -> ttk.Entry|None:
+        '''return first ttk.Entry widget that is empty.'''
+        for field in self._fields:
+            __inputStr = self._fields[field][1].get()
+            if __inputStr == "":
+                return self._fields[field][1]
+        return None
+            
+    def clearInputFeilds(self):
+        '''clear all ttk.Entry widget.'''
+        for field in self._fields:
+            self._fields[field][2].set("")
+        for field in self._fields:
+            self._fields[field][1].focus_set()
+            break
+    
+    @property
+    def getFrame(self) -> ttk.Frame:
+        return self._fieldsFrame
+    
+    @property
+    def haveField(self) -> bool:
+        if self._fields:
+            return True
+        else:
+            return False
+        
+    def view(self):
+        self.getFrame.pack(fill='both', padx=1, pady=1)
+        self.getFrame.columnconfigure(0, weight=1)
+        self.getFrame.columnconfigure(1,weight=2)
+        for r, id in enumerate(self._fields):
+            self.getLabel(id).grid(row=r, column=0, sticky='e', padx=5, pady=3)
+            self.getEntryField(id).grid(row=r, column=1, sticky='ew', padx=5,pady=3)
+        
+
+
+class button:
+    def __init__(self, master:Tk):
+        self._frame = ttk.Frame(master,borderwidth=5, relief="solid")
+        self._buttons:dict[str, tuple[ttk.Button, Callable]] = {}
+        '''button dictionary of class button. _buttons[button id:str][0 for ttk.Button widget, 1 for callable]'''
+    
+    def addButton(self, id:str, label:str, callable: Callable):
+        self._buttons[id] = (ttk.Button(self._frame, text=label, command=callable))
+
+    def getButton(self,id:str) -> Optional[ttk.Button]:
+        try:
+            return self._buttons[id][0]
+        except:
+            return self._buttons[id]
+        
+    @property
+    def getFrame(self) -> ttk.Frame:
+        return self._frame
+    
+    def view(self):
+        self.getFrame.pack(side='top', fill='both')
+        for id in self._buttons:
+            self.getButton(id).pack(side='right', anchor='e', expand=True, fill='x')
+
+class menu:
+    '''
+    create and manages menubar.
+    '''
+    def __init__(self, root:Tk):
+        self.menubar = tk.Menu(root) #creating menu bar
+        root.config(menu=self.menubar) #configuring menubar of root window
+        self.menuTree:dict[str, list[str]] = {}           #[parentLabel][childLabels]
+        self.commands:dict[str, dict[str, function]]={} #command=commands[parentLabel][label]
+    
+
+    def view(self):
+        '''build and place menubar with it's items on root window'''
+        self.buildMenu(self.menubar, 'root')
+        pass
+
+    def buildMenu(self,_parentMenu:tk.Menu, _parentLabel:str):
+        '''build menu from menuTree and commands dictionary.
+        menu is tree like data structure, here we are creating menu tree by DFS traversing.
+        this is a recursive function and it takes a parent menu and it's label,
+        explores, creats, and cascades it's child menu.'''
+        try:
+            '''this try block tries _parentLabel's child menu.
+            if child exists, it explores child's children recursively.'''
+            for childLabel in self.menuTree[_parentLabel]:
+                # creaitng child menu and cascade under parent menu
+                childMenu = tk.Menu(_parentMenu, tearoff=0)
+                _parentMenu.add_cascade(menu=childMenu, label=childLabel)
+                # recursion call
+                self.buildMenu(childMenu, childLabel)
+        except KeyError:
+            '''if try block is failed, that indicates that the parent menu has no child menu
+            so we are adding command labels/menu uder the parent menu
+            '''
+            commands = self.commands[_parentLabel]
+            for commandLabel in commands:
+                _parentMenu.add_command(label=commandLabel, command=commands[commandLabel])    
+        
+
+class baseWindow(ABC):
+    '''abstract class for creating a window class.'''
+    def __init__(self, title, size, parent=True, parentBaseWindow:Optional[Tk]=None, resizable=True):
+        super().__init__()
+        if parent:
+            self.root = Tk()
+        else:
+            self.root = tk.Toplevel(parentBaseWindow[0].root)
+            self.root.bind('<Escape>', lambda e: self.root.destroy())
+        self.root.title(title)
+        self.root.geometry(size)
+        if not resizable:
+            self.root.resizable(False, False)
+        self.tryStyle('clam')
+
+    @staticmethod
+    def tryStyle(theme:str):
+        style=ttk.Style()
+        style.theme_use('clam')
+
+    @abstractmethod
+    def view(self):
+        '''abstract class method for show up window class.'''
+        self.root.mainloop()
+
+class mainAppWindow(baseWindow):
+    def __init__(self, title, size, parent=True, parentBaseWindow = None, resizable=True):
+        super().__init__(title, size, parent, parentBaseWindow, resizable)
+        self.menu:menu=menu(self.root)
+        self.statusFrame = ttk.Frame(self.root, border=2, relief='sunken')
+        self.statusLabel = ttk.Label(self.statusFrame, text='Status bar...')
+
+    def addMenuTree(self, menuTree:dict[str, list[str]]):
+        self.menu.menuTree=menuTree
+
+    def addCommandTree(self, menuCommandTree):
+        self.menu.commands = menuCommandTree
+    
+    def view(self):
+        self.statusFrame.pack(fill='x', anchor='s',expand=True)
+        self.statusLabel.pack(anchor='w', expand=True)
+        self.menu.view()
+        return super().view()
+
+
+
+class formWindow(baseWindow):
+    def __init__(self, title, size, parent=True, parentBaseWindow = None, resizable=True):
+        super().__init__(title, size, parent, parentBaseWindow, resizable)
+        self.entries = entryField(self.root)
+        self.buttons = button(self.root)
+
+
+    def view(self):
+        self.entries.view()
+        self.buttons.view()
+        return super().view()
+
+class loginWindoww(formWindow):
+    def __init__(self, title, size, parent=True, parentBaseWindow = None, resizable=True):
+        super().__init__(title, size, parent, parentBaseWindow, resizable=True)
+        self.root.bind('<Return>',lambda e:self.submit())
+        self.root.bind('<Escape>',lambda e:self.root.destroy())
+        self.entries.addField('id','OIS ID')
+        self.entries.addField('passw', 'Password', True)
+        self.buttons.addButton('cancel', 'Cancel', lambda: self.root.destroy())
+        self.buttons.addButton('submit', 'Login', lambda:self.submit())
+        self.buttons.addButton('create', 'New User', lambda:self.switchToAddUser())
+        self.view()
+
+    def submit(self):
+        id = self.entries.getFieldVal('id')
+        passw=self.entries.getFieldVal('passw')
+        if id == '' or passw == '':
+            messagebox.showerror('Login Error','ID or Password cannot be empty!')
+        elif sysLogin(id,passw):
+            messagebox.showinfo('Login Success', 'Login success!')
+        else:
+            messagebox.showwarning('Credential Mismatch', 'ID and Password mismatch!')
+
+    @staticmethod
+    def switchToAddUser():
+        addNewUser('Add a User', '560x320')
+
+class addNewUser(formWindow):
+    def __init__(self, title, size, parent=True, parentBaseWindow=None, resizable=True):
+        super().__init__(title, size, parent, parentBaseWindow, resizable)
+        self.entries.addField('id','OIS ID')
+        self.entries.addField('name', 'Name')
+        self.entries.addField('passw', 'Password', True)
+        self.entries.addField('cPassw', 'Confirm Password', True)
+        self.buttons.addButton('cancel', 'Cancel', lambda:self.root.destroy())
+        self.buttons.addButton('create', 'Create', lambda: self.create())
+        self.root.bind('<Escape>',lambda e:self.escape())
+        self.view()
+
+    def create(self):
+        id=self.entries.getFieldVal('id')
+        passw=self.entries.getFieldVal('passw')
+        cPass=self.entries.getFieldVal('cPassw')
+        name = self.entries.getFieldVal('name')
+        if id =='' or name == '' or passw =='' or cPass == '':
+            messagebox.showerror('Failed', message='Fill all the required fields.')
+        elif passw==cPass:
+            try:
+                creatingUser(id, name, passw)
+                messagebox.showinfo('Success', message=f'OIS id: {id} added successfully')
+                self.root.destroy()
+            except sqlite3.IntegrityError:
+                self.entries.clearInputFeilds()
+                print(messagebox.showerror('Failed!', message=f'OIS id: {id} already exists.', parent=self.root))
+                self.entries.clearInputFeilds()
+        else:
+            self.entries.clearInputFeilds()
+            print(messagebox.showerror('Failed',message='Password mismatched! Try again.'))
+
+    def escape(self):
+        self.root.destroy()
+        loginWindoww('Login', '560x160')
+
+
+
+
+
 
 class window:
     def __init__(self, title, heading:str, size:str, resizable:bool=True, parent:bool = True, **kwargs):
@@ -134,9 +403,8 @@ class window:
         messagebox.showinfo("Success!!", message="All fields are completed!")
         self.clearInputFeilds()
 
-    def __findEmptyTable(table id:int){
+    def __findEmptyTable(self):
         pass
-    }
 
     def clearInputFeilds(self):
         for field in self.fields:

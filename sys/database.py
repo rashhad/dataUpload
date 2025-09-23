@@ -27,16 +27,19 @@ def sysLogin(id, pin:str):
         select id, pin from person where id = ?
         ''',(id,)
         )
-        retId, hashedPin = cursor.fetchone()
-        if bcrypt.checkpw(pin.encode('utf-8'), hashedPin):
-            cursor.execute('''
-            update person
-            set loginStatus = 1
-            where id = ?
-            ''',(id,))
-            conn.commit()
-            return True
-        else:
+        try:
+            retId, hashedPin = cursor.fetchone()
+            if bcrypt.checkpw(pin.encode('utf-8'), hashedPin):
+                cursor.execute('''
+                update person
+                set loginStatus = 1
+                where id = ?
+                ''',(id,))
+                conn.commit()
+                return True
+            else:
+                return False
+        except TypeError:
             return False
 
 def sysLogOut(id):
